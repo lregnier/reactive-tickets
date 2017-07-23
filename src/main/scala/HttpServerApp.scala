@@ -47,7 +47,7 @@ trait ServicesModule { self: AkkaModule =>
         settings = ClusterSingletonProxySettings(system).withSingletonName(TicketSellerSupervisor.Name)),
       name = s"${TicketSellerSupervisor.Name}-proxy")
 
-  val boxOffice = system.actorOf(EventManager.props(ticketSellerSupervisorSingletonProxy), EventManager.Name)
+  val eventManager = system.actorOf(EventManager.props(ticketSellerSupervisorSingletonProxy), EventManager.Name)
 }
 
 trait EndpointsModule { self: AkkaModule with ServicesModule =>
@@ -55,7 +55,7 @@ trait EndpointsModule { self: AkkaModule with ServicesModule =>
 
   val routes =
     pathPrefix("api") {
-      EventHttpEndpoint(boxOffice).routes
+      EventHttpEndpoint(eventManager).routes
     }
 }
 
