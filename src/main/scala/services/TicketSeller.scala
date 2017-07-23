@@ -1,11 +1,9 @@
 package services
 
-import java.util.UUID
-
 import akka.actor.{Actor, FSM, Props}
 import domain.{Ticket, _}
 
-import scala.collection.mutable
+import scala.collection.{immutable, mutable}
 
 object TicketSeller {
   def props(): Props = {
@@ -22,9 +20,8 @@ object TicketSeller {
   sealed trait Data
   case object EmptyData extends Data
 
-  class BoxOffice(ticketsNumber: Int) extends Data {
-    private val internalTickets =
-      mutable.Set((1 to ticketsNumber).map(_ => Ticket(UUID.randomUUID())):_*)
+  class BoxOffice(addTickets: immutable.Set[Ticket]) extends Data {
+    private val internalTickets = mutable.Set(addTickets.toSeq:_*)
 
     def buy(): Option[Ticket] = {
       val ticket = internalTickets.headOption
@@ -44,8 +41,8 @@ class TicketSeller extends Actor with FSM[TicketSeller.State, TicketSeller.Data]
   startWith(Idle, EmptyData)
 
   when(Idle) {
-    case Event(EventMessage(_, AddTickets(ticketsNumber)), _) => {
-      goto(Active) using new BoxOffice(ticketsNumber)
+    case Event(EventMessage(_, AddTickets(tickets)), _) => {
+      goto(Active) using new BoxOffice(tickets)
     }
   }
 
