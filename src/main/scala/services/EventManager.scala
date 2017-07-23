@@ -1,5 +1,7 @@
 package services
 
+import java.util.UUID
+
 import akka.actor._
 import domain.{Event, _}
 
@@ -33,7 +35,8 @@ class EventManager(ticketSellerSupervisor: ActorRef) extends Actor {
 
       val result =
         create().map { show =>
-          ticketSellerSupervisor ! EventMessage(name, AddTickets(ticketsNumber)) // TODO: This should be a side-effect
+          // TODO: This should be a side-effect
+          ticketSellerSupervisor ! EventMessage(name, AddTickets(TicketsGenerator.generate(ticketsNumber)))
           show
         }
 
@@ -95,3 +98,8 @@ class EventManager(ticketSellerSupervisor: ActorRef) extends Actor {
   }
 }
 
+object TicketsGenerator {
+  def generate(ticketsNumber: Int): Set[Ticket] = {
+    (1 to ticketsNumber).map(_ => Ticket(UUID.randomUUID())).toSet
+  }
+}
