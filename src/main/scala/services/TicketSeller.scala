@@ -1,8 +1,11 @@
 package services
 
+import java.util.UUID
+
 import akka.actor.{Actor, FSM, Props}
-import domain.Ticket
-import domain._
+import domain.{Ticket, _}
+
+import scala.collection.mutable
 
 object TicketSeller {
   def props(): Props = {
@@ -18,7 +21,19 @@ object TicketSeller {
   // Data
   sealed trait Data
   case object EmptyData extends Data
-  case class TicketsAvailable(tickets: Set[Ticket]) extends Data
+
+  class BoxOffice(ticketsNumber: Int) extends Data {
+    private val internalTickets =
+      mutable.Set((1 to ticketsNumber).map(_ => Ticket(UUID.randomUUID())):_*)
+
+    def buy(): Option[Ticket] = {
+      val ticket = internalTickets.headOption
+      ticket.foreach(t => internalTickets.remove(t))
+      ticket
+    }
+
+    def tickets(): Seq[Ticket] = internalTickets.toSeq
+  }
 
 }
 
@@ -29,43 +44,39 @@ class TicketSeller extends Actor with FSM[TicketSeller.State, TicketSeller.Data]
   startWith(Idle, EmptyData)
 
   when(Idle) {
-    case Event(EventMessage(_, AddTickets(newTickets)), _) => {
-      log.info("Adding new tickets {}", newTickets)
-      goto(Active) using TicketsAvailable(newTickets)
+    case Event(EventMessage(_, AddTickets(ticketsNumber)), _) => {
+      goto(Active) using new BoxOffice(ticketsNumber)
     }
   }
 
   when(Active) {
-    case Event(EventMessage(_, BuyTicket), TicketsAvailable(tickets)) => {
-      log.info("Selling a ticket")
-      val ticket = tickets.last
-      sender ! Some(ticket)
-      val currentTickets = tickets.dropRight(1)
-      if (currentTickets.nonEmpty) stay using TicketsAvailable(currentTickets)
-      else goto(SoldOut) using TicketsAvailable(currentTickets)
+    case Event(EventMessage(_, BuyTicket), boxOffice: TicketSeller.BoxOffice) => {
+      sender ! boxOffice.buy()
+      if (boxOffice.tickets.nonEmpty) stay using boxOffice
+      else goto(SoldOut) using boxOffice
     }
 
-    case Event(EventMessage(_, ListTickets), TicketsAvailable(tickets)) => {
-      sender ! tickets
+    case Event(EventMessage(_, ListTickets), boxOffice: TicketSeller.BoxOffice) => {
+      sender ! boxOffice.tickets
       stay
     }
   }
 
   when(SoldOut) {
-    case Event(EventMessage(_, BuyTicket), _) => {
-      sender ! None
+    case Event(EventMessage(_, BuyTicket), boxOffice: TicketSeller.BoxOffice) => {
+      sender ! boxOffice.buy()
       stay
     }
 
-    case Event(EventMessage(_, ListTickets), _) => {
-      sender ! Set.empty
+    case Event(EventMessage(_, ListTickets), boxOffice: TicketSeller.BoxOffice) => {
+      sender ! boxOffice.tickets
       stay
     }
   }
 
   whenUnhandled {
-    case Event(EventMessage(_, Cancel), currentState) => {
-      sender ! currentState
+    case Event(EventMessage(name, Cancel), _) => {
+      log.info("Cancelling Ticket Seller for Event {}", name)
       stop
     }
 
@@ -78,6 +89,3 @@ class TicketSeller extends Actor with FSM[TicketSeller.State, TicketSeller.Data]
   initialize()
 
 }
-
-
-

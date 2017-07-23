@@ -1,14 +1,14 @@
 import akka.actor.ActorSystem
 import akka.event.Logging
 import akka.http.scaladsl.Http
+import akka.http.scaladsl.server.Directives
 import akka.stream.ActorMaterializer
-import api.BoxOfficeEndpoint
+import api.EventHttpEndpoint
 import com.typesafe.config.{Config, ConfigFactory}
-import services.{BoxOffice, TicketSellerSupervisor}
+import services.{EventManager, TicketSellerSupervisor}
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
-import akka.http.scaladsl.server.Directives
 
 trait AkkaModule {
   implicit val system = ActorSystem("akka-tickets-system")
@@ -30,7 +30,7 @@ trait SettingsModule {
 
 trait ServicesModule { self: AkkaModule =>
   val ticketSellerSupervisor = system.actorOf(TicketSellerSupervisor.props(), TicketSellerSupervisor.Name)
-  val boxOffice = system.actorOf(BoxOffice.props(ticketSellerSupervisor), BoxOffice.Name)
+  val boxOffice = system.actorOf(EventManager.props(ticketSellerSupervisor), EventManager.Name)
 }
 
 trait EndpointsModule { self: AkkaModule with ServicesModule =>
@@ -38,7 +38,7 @@ trait EndpointsModule { self: AkkaModule with ServicesModule =>
 
   val routes =
     pathPrefix("api") {
-      BoxOfficeEndpoint(boxOffice).routes
+      EventHttpEndpoint(boxOffice).routes
     }
 }
 

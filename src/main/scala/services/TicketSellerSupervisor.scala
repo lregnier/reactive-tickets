@@ -14,13 +14,13 @@ object TicketSellerSupervisor {
 class TicketSellerSupervisor extends Actor {
 
   def ticketSeller(name: String): ActorRef = {
-    // Retrieves ticket seller for given name, if none creates one
+    // Retrieves ticket seller for the given name, if none creates one
     context.child(name).getOrElse(context.actorOf(TicketSeller.props(), name))
   }
 
   def receive = {
     // Forwards message to proper ticket seller
-    case msg @ EventMessage(name, _) => ticketSeller(name) ! msg
+    case msg @ EventMessage(name, _) => ticketSeller(name) forward msg
   }
 
 }
