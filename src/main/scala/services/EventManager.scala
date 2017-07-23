@@ -62,11 +62,11 @@ class EventManager(ticketSellerSupervisor: ActorRef) extends Actor {
     }
 
     case ListEvents => {
-      def listShows(): Seq[Event] = {
+      def listEvents(): Seq[Event] = {
         events.toSeq
       }
 
-      sender ! listShows()
+      sender ! listEvents()
     }
 
     case msg @ EventMessage(name, Cancel) =>

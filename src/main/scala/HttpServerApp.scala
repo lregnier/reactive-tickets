@@ -11,7 +11,7 @@ import scala.concurrent.Await
 import scala.concurrent.duration._
 
 trait AkkaModule {
-  implicit val system = ActorSystem("akka-tickets-system")
+  implicit val system = ActorSystem("reactive-tickets-system")
   implicit val executor = system.dispatcher
   implicit val materializer = ActorMaterializer()
 }
