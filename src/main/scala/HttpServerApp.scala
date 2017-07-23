@@ -30,7 +30,7 @@ trait SettingsModule {
 
 trait ServicesModule { self: AkkaModule =>
   val ticketSellerSupervisor = system.actorOf(TicketSellerSupervisor.props(), TicketSellerSupervisor.Name)
-  val boxOffice = system.actorOf(EventManager.props(ticketSellerSupervisor), EventManager.Name)
+  val eventManager = system.actorOf(EventManager.props(ticketSellerSupervisor), EventManager.Name)
 }
 
 trait EndpointsModule { self: AkkaModule with ServicesModule =>
@@ -38,7 +38,7 @@ trait EndpointsModule { self: AkkaModule with ServicesModule =>
 
   val routes =
     pathPrefix("api") {
-      EventHttpEndpoint(boxOffice).routes
+      EventHttpEndpoint(eventManager).routes
     }
 }
 
