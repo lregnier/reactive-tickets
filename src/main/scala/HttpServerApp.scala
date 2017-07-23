@@ -31,22 +31,23 @@ trait SettingsModule {
 
 trait ServicesModule { self: AkkaModule =>
   // Initiates singleton TicketSellerSupervisor in the Cluster
-  system.actorOf(
-    ClusterSingletonManager.props(
-      singletonProps = TicketSellerSupervisor.props(),
-      terminationMessage = PoisonPill,
-      settings = ClusterSingletonManagerSettings(system).withSingletonName(TicketSellerSupervisor.Name)),
-    name = s"${TicketSellerSupervisor.Name}-singleton")
+  val ticketSellerSupervisorSingleton =
+    system.actorOf(
+      ClusterSingletonManager.props(
+        singletonProps = TicketSellerSupervisor.props(),
+        terminationMessage = PoisonPill,
+        settings = ClusterSingletonManagerSettings(system).withSingletonName(TicketSellerSupervisor.Name)),
+      name = s"${TicketSellerSupervisor.Name}-singleton")
 
   // Initiates proxy for singleton
-  val ticketSellerSupervisor =
-  system.actorOf(
-    ClusterSingletonProxy.props(
-      singletonManagerPath = "/user/consumer",
-      settings = ClusterSingletonProxySettings(system)),
-    name = s"${TicketSellerSupervisor.Name}-proxy")
+  val ticketSellerSupervisorSingletonProxy =
+    system.actorOf(
+      ClusterSingletonProxy.props(
+        singletonManagerPath = ticketSellerSupervisorSingleton.path.toStringWithoutAddress,
+        settings = ClusterSingletonProxySettings(system).withSingletonName(TicketSellerSupervisor.Name)),
+      name = s"${TicketSellerSupervisor.Name}-proxy")
 
-  val boxOffice = system.actorOf(EventManager.props(ticketSellerSupervisor), EventManager.Name)
+  val boxOffice = system.actorOf(EventManager.props(ticketSellerSupervisorSingletonProxy), EventManager.Name)
 }
 
 trait EndpointsModule { self: AkkaModule with ServicesModule =>
