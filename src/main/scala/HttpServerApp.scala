@@ -1,4 +1,5 @@
-import akka.actor.ActorSystem
+import akka.actor.{ActorSystem, PoisonPill}
+import akka.cluster.singleton.{ClusterSingletonManager, ClusterSingletonManagerSettings, ClusterSingletonProxy, ClusterSingletonProxySettings}
 import akka.event.Logging
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.server.Directives
@@ -11,7 +12,7 @@ import scala.concurrent.Await
 import scala.concurrent.duration._
 
 trait AkkaModule {
-  implicit val system = ActorSystem("akka-tickets-system")
+  implicit val system = ActorSystem("reactive-tickets-system")
   implicit val executor = system.dispatcher
   implicit val materializer = ActorMaterializer()
 }
@@ -29,7 +30,22 @@ trait SettingsModule {
 }
 
 trait ServicesModule { self: AkkaModule =>
-  val ticketSellerSupervisor = system.actorOf(TicketSellerSupervisor.props(), TicketSellerSupervisor.Name)
+  // Initiates singleton TicketSellerSupervisor in the Cluster
+  system.actorOf(
+    ClusterSingletonManager.props(
+      singletonProps = TicketSellerSupervisor.props(),
+      terminationMessage = PoisonPill,
+      settings = ClusterSingletonManagerSettings(system).withSingletonName(TicketSellerSupervisor.Name)),
+    name = s"${TicketSellerSupervisor.Name}-singleton")
+
+  // Initiates proxy for singleton
+  val ticketSellerSupervisor =
+  system.actorOf(
+    ClusterSingletonProxy.props(
+      singletonManagerPath = "/user/consumer",
+      settings = ClusterSingletonProxySettings(system)),
+    name = s"${TicketSellerSupervisor.Name}-proxy")
+
   val boxOffice = system.actorOf(EventManager.props(ticketSellerSupervisor), EventManager.Name)
 }
 
