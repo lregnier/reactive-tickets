@@ -6,6 +6,8 @@ import domain.{Ticket, _}
 import scala.collection.{immutable, mutable}
 
 object TicketSeller {
+  val Name = "ticket-seller"
+
   def props(): Props = {
     Props(new TicketSeller())
   }

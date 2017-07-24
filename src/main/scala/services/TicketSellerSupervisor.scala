@@ -15,7 +15,8 @@ class TicketSellerSupervisor extends Actor {
 
   def ticketSeller(name: String): ActorRef = {
     // Retrieves ticket seller for the given name, if none creates one
-    context.child(name).getOrElse(context.actorOf(TicketSeller.props(), name))
+    val actorName = s"${TicketSeller.Name}-$name"
+    context.child(actorName).getOrElse(context.actorOf(TicketSeller.props(), actorName))
   }
 
   def receive = {
