@@ -31,7 +31,7 @@ trait SettingsModule {
 
 trait ServicesModule { self: AkkaModule =>
   // Initiates ShardRegion for TicketSeller
-  val ticketSellerSupervisorShardRegion =
+  val ticketSellerShardRegion =
     ClusterSharding(system).start(
       typeName = TicketSeller.Name,
       entityProps = TicketSeller.props(),
@@ -39,7 +39,7 @@ trait ServicesModule { self: AkkaModule =>
       extractEntityId = TicketSeller.Sharding.extractEntityId,
       extractShardId = TicketSeller.Sharding.extractShardId)
 
-  val eventManager = system.actorOf(EventManager.props(ticketSellerSupervisorShardRegion), EventManager.Name)
+  val eventManager = system.actorOf(EventManager.props(ticketSellerShardRegion), EventManager.Name)
 }
 
 trait EndpointsModule { self: AkkaModule with ServicesModule =>
