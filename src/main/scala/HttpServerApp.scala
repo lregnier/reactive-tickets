@@ -1,12 +1,12 @@
-import akka.actor.{ActorSystem, PoisonPill}
-import akka.cluster.singleton.{ClusterSingletonManager, ClusterSingletonManagerSettings, ClusterSingletonProxy, ClusterSingletonProxySettings}
+import akka.actor.ActorSystem
+import akka.cluster.sharding.{ClusterSharding, ClusterShardingSettings}
 import akka.event.Logging
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.server.Directives
 import akka.stream.ActorMaterializer
 import api.EventHttpEndpoint
 import com.typesafe.config.{Config, ConfigFactory}
-import services.{EventManager, TicketSellerSupervisor}
+import services.{EventManager, TicketSeller}
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -30,24 +30,16 @@ trait SettingsModule {
 }
 
 trait ServicesModule { self: AkkaModule =>
-  // Initiates singleton TicketSellerSupervisor in the Cluster
-  val ticketSellerSupervisorSingleton =
-    system.actorOf(
-      ClusterSingletonManager.props(
-        singletonProps = TicketSellerSupervisor.props(),
-        terminationMessage = PoisonPill,
-        settings = ClusterSingletonManagerSettings(system).withSingletonName(TicketSellerSupervisor.Name)),
-      name = s"${TicketSellerSupervisor.Name}-singleton")
+  // Initiates ShardRegion for TicketSeller
+  val ticketSellerSupervisorShardRegion =
+    ClusterSharding(system).start(
+      typeName = TicketSeller.Name,
+      entityProps = TicketSeller.props(),
+      settings = ClusterShardingSettings(system),
+      extractEntityId = TicketSeller.Sharding.extractEntityId,
+      extractShardId = TicketSeller.Sharding.extractShardId)
 
-  // Initiates proxy for singleton
-  val ticketSellerSupervisorSingletonProxy =
-    system.actorOf(
-      ClusterSingletonProxy.props(
-        singletonManagerPath = ticketSellerSupervisorSingleton.path.toStringWithoutAddress,
-        settings = ClusterSingletonProxySettings(system).withSingletonName(TicketSellerSupervisor.Name)),
-      name = s"${TicketSellerSupervisor.Name}-proxy")
-
-  val eventManager = system.actorOf(EventManager.props(ticketSellerSupervisorSingletonProxy), EventManager.Name)
+  val eventManager = system.actorOf(EventManager.props(ticketSellerSupervisorShardRegion), EventManager.Name)
 }
 
 trait EndpointsModule { self: AkkaModule with ServicesModule =>

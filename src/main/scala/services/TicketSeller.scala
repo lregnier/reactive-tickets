@@ -1,11 +1,14 @@
 package services
 
 import akka.actor.{Actor, FSM, Props}
+import akka.cluster.sharding.ShardRegion
 import domain.{Ticket, _}
 
 import scala.collection.{immutable, mutable}
 
 object TicketSeller {
+  val Name = "ticket-seller"
+
   def props(): Props = {
     Props(new TicketSeller())
   }
@@ -30,6 +33,16 @@ object TicketSeller {
     }
 
     def tickets(): Seq[Ticket] = internalTickets.toSeq
+  }
+
+  object Sharding {
+    val extractEntityId: ShardRegion.ExtractEntityId = {
+      case msg @ EventMessage(jobId, _) => (jobId.toString, msg)
+    }
+
+    val extractShardId: ShardRegion.ExtractShardId = {
+      case EventMessage(jobId, _) => (math.abs(jobId.toString.hashCode) % 100).toString
+    }
   }
 
 }
