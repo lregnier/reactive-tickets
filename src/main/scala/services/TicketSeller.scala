@@ -55,7 +55,6 @@ object TicketSeller {
   case class TicketsAdded(tickets: Seq[Ticket]) extends DomainEvent
   case object TicketBought extends DomainEvent
 
-
   object Sharding {
     val extractEntityId: ShardRegion.ExtractEntityId = {
       case msg @ EventMessage(jobId, _) => (jobId.toString, msg)
