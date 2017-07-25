@@ -75,7 +75,7 @@ class EventManager(ticketSellerSupervisor: ActorRef) extends Actor {
     case msg @ EventMessage(name, Cancel) =>
       def remove(): Option[Event] = {
         val result = events.find(_.name == name)
-        result.foreach(s => events.filterNot(_ == s))
+        result.foreach(s => events -= s)
         result
       }
 
