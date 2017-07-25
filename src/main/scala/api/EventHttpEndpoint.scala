@@ -73,7 +73,7 @@ class EventHttpEndpoint(boxOfficeService: ActorRef) extends Directives with Json
       }
     }
 
-  def getTickets =
+  def listTickets =
     (path(Segment / "tickets") & get) { name =>
       onSuccess((boxOfficeService ? EventMessage(name, ListTickets)).mapTo[Seq[Ticket]]) { events =>
         complete(events)
@@ -87,7 +87,7 @@ class EventHttpEndpoint(boxOfficeService: ActorRef) extends Directives with Json
       remove ~
       list ~
       buyTicket ~
-      getTickets
+      listTickets
     }
 
 }
