@@ -25,6 +25,7 @@ object TicketSeller {
   case object Active extends State {
     override def identifier: String = "active"
   }
+
   case object SoldOut extends State {
     override def identifier: String = "sold-out"
   }
