@@ -75,7 +75,7 @@ class EventManager(ticketSellerSupervisor: ActorRef) extends Actor {
     case msg @ EventMessage(name, Cancel) =>
       def remove(): Option[Event] = {
         val result = events.find(_.name == name)
-        result.foreach(s => events.filterNot(_ == s))
+        result.foreach(s => events -= s)
         result
       }
 
@@ -99,7 +99,7 @@ class EventManager(ticketSellerSupervisor: ActorRef) extends Actor {
 }
 
 object TicketsGenerator {
-  def generate(ticketsNumber: Int): Set[Ticket] = {
-    (1 to ticketsNumber).map(_ => Ticket(UUID.randomUUID())).toSet
+  def generate(ticketsNumber: Int): Seq[Ticket] = {
+    (1 to ticketsNumber).map(_ => Ticket(UUID.randomUUID()))
   }
 }

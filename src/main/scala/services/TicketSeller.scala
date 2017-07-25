@@ -43,9 +43,10 @@ object TicketSeller {
 
   case class NonEmptyBoxOffice(tickets: Seq[Ticket]) extends BoxOffice {
     def buy(): (Option[Ticket], BoxOffice) = {
-      tickets match {
+      tickets.toList match {
         case ticket :: Nil => (Some(ticket), EmptyBoxOffice)
         case ticket :: rest => (Some(ticket), NonEmptyBoxOffice(rest))
+        case Nil => (None, EmptyBoxOffice)
       }
     }
   }
@@ -95,7 +96,7 @@ class TicketSeller extends Actor with PersistentFSM[TicketSeller.State, TicketSe
 
   when(Idle) {
     case Event(EventMessage(_, AddTickets(tickets)), _) => {
-      goto(Active) applying TicketsAdded(tickets.toSeq)
+      goto(Active) applying TicketsAdded(tickets)
     }
   }
 
