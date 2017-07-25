@@ -69,7 +69,8 @@ class TicketSeller extends Actor with FSM[TicketSeller.State, TicketSeller.BoxOf
 
   when(SoldOut) {
     case Event(EventMessage(_, BuyTicket), boxOffice: BoxOffice) => {
-      sender ! boxOffice.buy()
+      val (boughtTicket, _) = boxOffice.buy()
+      sender ! boughtTicket
       stay
     }
 
