@@ -3,8 +3,6 @@ package services
 import akka.actor.{Actor, FSM, Props}
 import domain.{Ticket, _}
 
-import scala.collection.{immutable, mutable}
-
 object TicketSeller {
   val Name = "ticket-seller"
 
@@ -19,55 +17,63 @@ object TicketSeller {
   case object SoldOut extends State
 
   // Data
-  sealed trait Data
-  case object EmptyData extends Data
+  sealed trait BoxOffice {
+    def buy(): (Option[Ticket], BoxOffice)
+    def tickets(): Seq[Ticket]
+  }
 
-  class BoxOffice(addTickets: immutable.Set[Ticket]) extends Data {
-    private val internalTickets = mutable.Set(addTickets.toSeq:_*)
+  case object EmptyBoxOffice extends BoxOffice {
+    def buy(): (Option[Ticket], BoxOffice) = (None, EmptyBoxOffice)
+    def tickets(): Seq[Ticket] = Seq.empty
+  }
 
-    def buy(): Option[Ticket] = {
-      val ticket = internalTickets.headOption
-      ticket.foreach(t => internalTickets.remove(t))
-      ticket
+  case class NonEmptyBoxOffice(tickets: Seq[Ticket]) extends BoxOffice {
+    def buy(): (Option[Ticket], BoxOffice) = {
+      tickets.toList match {
+        case ticket :: Nil => (Some(ticket), EmptyBoxOffice)
+        case ticket :: rest => (Some(ticket), NonEmptyBoxOffice(rest))
+        case Nil => (None, EmptyBoxOffice)
+      }
     }
-
-    def tickets(): Seq[Ticket] = internalTickets.toSeq
   }
 
 }
 
-class TicketSeller extends Actor with FSM[TicketSeller.State, TicketSeller.Data] {
+class TicketSeller extends Actor with FSM[TicketSeller.State, TicketSeller.BoxOffice] {
 
   import TicketSeller._
 
-  startWith(Idle, EmptyData)
+  startWith(Idle, EmptyBoxOffice)
 
   when(Idle) {
     case Event(EventMessage(_, AddTickets(tickets)), _) => {
-      goto(Active) using new BoxOffice(tickets)
+      goto(Active) using NonEmptyBoxOffice(tickets)
     }
   }
 
   when(Active) {
-    case Event(EventMessage(_, BuyTicket), boxOffice: TicketSeller.BoxOffice) => {
-      sender ! boxOffice.buy()
-      if (boxOffice.tickets.nonEmpty) stay using boxOffice
-      else goto(SoldOut) using boxOffice
+    case Event(EventMessage(_, BuyTicket), boxOffice: BoxOffice) => {
+      val (boughtTicket, newBoxOffice) = boxOffice.buy()
+      sender ! boughtTicket
+      newBoxOffice match {
+        case bo: NonEmptyBoxOffice => stay using bo
+        case EmptyBoxOffice => goto(SoldOut) using EmptyBoxOffice
+      }
     }
 
-    case Event(EventMessage(_, ListTickets), boxOffice: TicketSeller.BoxOffice) => {
+    case Event(EventMessage(_, ListTickets), boxOffice: BoxOffice) => {
       sender ! boxOffice.tickets
       stay
     }
   }
 
   when(SoldOut) {
-    case Event(EventMessage(_, BuyTicket), boxOffice: TicketSeller.BoxOffice) => {
+    case Event(EventMessage(_, BuyTicket), boxOffice: BoxOffice) => {
       sender ! boxOffice.buy()
       stay
     }
 
-    case Event(EventMessage(_, ListTickets), boxOffice: TicketSeller.BoxOffice) => {
+    case Event(EventMessage(_, ListTickets), boxOffice: BoxOffice) => {
       sender ! boxOffice.tickets
       stay
     }

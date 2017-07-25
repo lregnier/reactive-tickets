@@ -99,7 +99,7 @@ class EventManager(ticketSellerSupervisor: ActorRef) extends Actor {
 }
 
 object TicketsGenerator {
-  def generate(ticketsNumber: Int): Set[Ticket] = {
-    (1 to ticketsNumber).map(_ => Ticket(UUID.randomUUID())).toSet
+  def generate(ticketsNumber: Int): Seq[Ticket] = {
+    (1 to ticketsNumber).map(_ => Ticket(UUID.randomUUID()))
   }
 }
