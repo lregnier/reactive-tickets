@@ -2,7 +2,7 @@ name := "reactive-tickets"
 
 version := "1.0"
 
-scalaVersion := "2.12.2"
+scalaVersion := "2.11.11"
 
 libraryDependencies ++= {
   val akkaVersion = "2.5.3"
@@ -17,6 +17,8 @@ libraryDependencies ++= {
     "com.typesafe.akka" %% "akka-stream" % akkaVersion,
     "de.heikoseeberger" %% "akka-http-json4s" % akkaHttpJson4sVersion,
     "org.json4s" %% "json4s-jackson" % json4sVersion,
-    "org.json4s" %% "json4s-ext" % json4sVersion
+    "org.json4s" %% "json4s-ext" % json4sVersion,
+    "org.reactivemongo" %% "reactivemongo" % "0.12.5",
+    "ch.qos.logback" % "logback-classic" % "1.2.3"
   )
 }
