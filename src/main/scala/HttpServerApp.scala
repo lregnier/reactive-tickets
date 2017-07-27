@@ -7,6 +7,9 @@ import akka.stream.ActorMaterializer
 import api.EventHttpEndpoint
 import com.typesafe.config.{Config, ConfigFactory}
 import services.{EventManager, TicketSeller}
+import persistence.EventRepository
+import reactivemongo.api.{MongoConnection, MongoDriver}
+import services.{EventManager, TicketSellerSupervisor}
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -19,17 +22,22 @@ trait AkkaModule {
 
 trait SettingsModule {
   private val config = ConfigFactory.load()
+  val mongoDbSettings = new MongoDbSettings(config)
   val httpSettings = new HttpSettings(config)
+
+  class MongoDbSettings(config: Config) {
+    private val mongoDbConfig = config.getConfig("mongodb")
+    val uri = mongoDbConfig.getString("uri")
+  }
 
   class HttpSettings(config: Config) {
     private val httpConfig = config.getConfig("http")
-
     val host = httpConfig.getString("host")
     val port = httpConfig.getInt("port")
   }
 }
 
-trait ServicesModule { self: AkkaModule =>
+trait ServicesModule { self: AkkaModule with SettingsModule =>
   // Initiates ShardRegion for TicketSeller
   val ticketSellerShardRegion =
     ClusterSharding(system).start(
@@ -39,7 +47,7 @@ trait ServicesModule { self: AkkaModule =>
       extractEntityId = TicketSeller.Sharding.extractEntityId,
       extractShardId = TicketSeller.Sharding.extractShardId)
 
-  val eventManager = system.actorOf(EventManager.props(ticketSellerShardRegion), EventManager.Name)
+  val eventManager = system.actorOf(EventManager.props(eventRepository, ticketSellerShardRegion), EventManager.Name)
 }
 
 trait EndpointsModule { self: AkkaModule with ServicesModule =>
@@ -52,7 +60,7 @@ trait EndpointsModule { self: AkkaModule with ServicesModule =>
 }
 
 
-object HttpServerApp extends App with AkkaModule with SettingsModule with ServicesModule with EndpointsModule {
+object HttpServerApp extends App with AkkaModule with SettingsModule with PersistenceModule with ServicesModule with EndpointsModule {
   // Initialize server
   Http().bindAndHandle(routes, httpSettings.host, httpSettings.port)
 

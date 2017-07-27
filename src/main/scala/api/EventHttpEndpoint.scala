@@ -5,13 +5,13 @@ import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Directives
 import akka.pattern.ask
 import akka.util.Timeout
-import org.json4s.ext.UUIDSerializer
 import de.heikoseeberger.akkahttpjson4s.Json4sSupport
-import domain.{EventMessage, Event, _}
+import domain.{Event, EventMessage, _}
+import org.json4s.ext.UUIDSerializer
 import org.json4s.{DefaultFormats, jackson}
 
 import scala.concurrent.duration._
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Success}
 
 trait Json4sJacksonSupport extends Json4sSupport { self: Directives =>
   implicit val serialization = jackson.Serialization
@@ -34,8 +34,8 @@ class EventHttpEndpoint(boxOfficeService: ActorRef) extends Directives with Json
   def create =
     (pathEnd & post & entity(as[CreateEventRepresentation])) { createEvent =>
       extractUri { uri =>
-        val msg = EventMessage(createEvent.name, CreateEvent(createEvent.ticketsNumber))
-        onSuccess((boxOfficeService ? msg).mapTo[Try[Event]]) {
+        val msg = CreateEvent(createEvent.name, createEvent.ticketsNumber)
+        onComplete((boxOfficeService ? msg).mapTo[Event]) {
           case Success(event) => complete(StatusCodes.Created, event)
           case Failure(e) => complete(StatusCodes.UnprocessableEntity, e.getMessage())
         }
@@ -52,7 +52,7 @@ class EventHttpEndpoint(boxOfficeService: ActorRef) extends Directives with Json
 
   def remove =
     (path(Segment) & delete) { name =>
-      onSuccess((boxOfficeService ? EventMessage(name, Cancel)).mapTo[Option[Event]]) {
+      onSuccess((boxOfficeService ? EventMessage(name, Cancel)).mapTo[Option[String]]) {
         case Some(_) => complete(StatusCodes.NoContent)
         case None => complete(StatusCodes.NotFound)
       }

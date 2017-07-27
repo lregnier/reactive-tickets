@@ -3,99 +3,98 @@ package services
 import java.util.UUID
 
 import akka.actor._
+import akka.pattern.{ask, pipe}
+import akka.util.Timeout
 import domain.{Event, _}
+import persistence.EventRepository
 
-import scala.util.Try
+import scala.concurrent.Future
+import scala.concurrent.duration._
 
 object EventManager {
   val Name = "event-manager"
 
-  def props(ticketSellerSupervisor: ActorRef): Props = {
-    Props(new EventManager(ticketSellerSupervisor))
+  def props(eventRepository: EventRepository, ticketSellerSupervisor: ActorRef): Props = {
+    Props(new EventManager(eventRepository: EventRepository, ticketSellerSupervisor))
   }
 
 }
 
-class EventManager(ticketSellerSupervisor: ActorRef) extends Actor {
+class EventManager(eventRepository: EventRepository, ticketSellerSupervisor: ActorRef) extends Actor {
 
+  implicit val timeout = Timeout(5 seconds)
   implicit val ec = context.dispatcher
 
-  var events = Set.empty[Event]
-
   def receive = {
-    case EventMessage(name, CreateEvent(ticketsNumber)) => {
-      def create(): Try[Event] = Try {
-        if (eventExists(name)) throw new IllegalArgumentException(s"An event with name '$name' already exists.")
-        else {
-          val show = Event(name)
-          events += show
-          show
-        }
+    case CreateEvent(name, ticketsNumber) => {
+      val result = eventRepository.create(name)
+
+      // Create TicketSellerSupervisor as side-effect
+      result onSuccess {
+        case Event(id, _) => ticketSellerSupervisor ! EventMessage(id, AddTickets(TicketsGenerator.generate(ticketsNumber)))
       }
 
-      val result =
-        create().map { show =>
-          // TODO: This should be a side-effect
-          ticketSellerSupervisor ! EventMessage(name, AddTickets(TicketsGenerator.generate(ticketsNumber)))
-          show
-        }
-
-      sender ! result
-
+      result pipeTo sender
     }
 
-    case EventMessage(name, RetrieveEvent) => {
-      def retrieveShow(): Option[Event] = {
-        events.find(_.name == name)
-      }
+    case EventMessage(id, RetrieveEvent) => {
+      val result = eventRepository.retrieve(id)
 
-      sender ! retrieveShow()
-    }
-
-    case msg @ EventMessage(name, BuyTicket) => {
-      verifyEventAndThen(name) { _ =>
-        ticketSellerSupervisor forward msg
-      }
-    }
-
-    case msg @ EventMessage(name, ListTickets) => {
-      verifyEventAndThen(name) { _ =>
-        ticketSellerSupervisor forward msg
-      }
+      result pipeTo sender
     }
 
     case ListEvents => {
-      def listEvents(): Seq[Event] = {
-        events.toSeq
-      }
+      val result = eventRepository.list()
 
-      sender ! listEvents()
+      result pipeTo sender
     }
 
-    case msg @ EventMessage(name, Cancel) =>
-      def remove(): Option[Event] = {
-        val result = events.find(_.name == name)
-        result.foreach(s => events -= s)
-        result
+    case msg @ EventMessage(id, BuyTicket) => {
+      def buyTicket(): Future[Option[Ticket]] = {
+        (ticketSellerSupervisor ? msg).mapTo[Option[Ticket]]
       }
 
       val result =
-        remove().map { show =>
-          ticketSellerSupervisor ! msg // TODO: This should be a side-effect
-          show
-        }
+        for {
+          _ <- verifyEvent(id)
+          ticket <- buyTicket()
+        } yield ticket
 
-      sender ! result
+      result pipeTo sender
+    }
+
+    case msg @ EventMessage(id, ListTickets) => {
+      def retrieveTickets(): Future[Seq[Ticket]] = {
+        (ticketSellerSupervisor ? msg).mapTo[Seq[Ticket]]
+      }
+
+      val result =
+        for {
+          _ <- verifyEvent(id)
+          tickets <- retrieveTickets()
+        } yield tickets
+
+      result pipeTo sender
+    }
+
+    case msg @ EventMessage(id, Cancel) =>
+      val result = eventRepository.remove(id)
+
+      // Remove TicketSellerSupervisor as side-effect
+      result onSuccess {
+        case Some(_) => ticketSellerSupervisor ! msg
+      }
+
+      result pipeTo sender
   }
 
-  def eventExists(name: String): Boolean = {
-    events.exists(_.name == name)
+  def verifyEvent(id: String): Future[Event] = {
+    eventRepository.retrieve(id) flatMap {
+      case Some(event) => Future.successful(event)
+      case None => Future.failed(new IllegalArgumentException(s"Non-existent event for id: $id"))
+    }
   }
 
-  def verifyEventAndThen(name: String)(func: String => Unit): Unit = {
-    if (eventExists(name)) func(name)
-    else sender ! None
-  }
 }
 
 object TicketsGenerator {
