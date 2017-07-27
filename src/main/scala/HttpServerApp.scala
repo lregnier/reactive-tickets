@@ -6,10 +6,9 @@ import akka.http.scaladsl.server.Directives
 import akka.stream.ActorMaterializer
 import api.EventHttpEndpoint
 import com.typesafe.config.{Config, ConfigFactory}
-import services.{EventManager, TicketSeller}
 import persistence.EventRepository
 import reactivemongo.api.{MongoConnection, MongoDriver}
-import services.{EventManager, TicketSellerSupervisor}
+import services.{EventManager, TicketSeller}
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -37,7 +36,15 @@ trait SettingsModule {
   }
 }
 
-trait ServicesModule { self: AkkaModule with SettingsModule =>
+trait PersistenceModule { self: AkkaModule with SettingsModule =>
+  private val driver = MongoDriver()
+  private val parsedUri = MongoConnection.parseURI(mongoDbSettings.uri)
+  private val connection = parsedUri.map(driver.connection(_)).get // Fail fast here
+
+  val eventRepository = new EventRepository(connection)
+}
+
+trait ServicesModule { self: AkkaModule with PersistenceModule =>
   // Initiates ShardRegion for TicketSeller
   val ticketSellerShardRegion =
     ClusterSharding(system).start(
