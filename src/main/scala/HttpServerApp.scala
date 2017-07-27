@@ -51,16 +51,16 @@ trait ServicesModule { self: AkkaModule with PersistenceModule =>
       ClusterSingletonManager.props(
         singletonProps = TicketSellerSupervisor.props(),
         terminationMessage = PoisonPill,
-        settings = ClusterSingletonManagerSettings(system).withSingletonName(TicketSellerSupervisor.Name)),
-      name = s"${TicketSellerSupervisor.Name}-singleton")
+        settings = ClusterSingletonManagerSettings(system).withSingletonName(s"${TicketSellerSupervisor.Name}-singleton")),
+      name = s"${TicketSellerSupervisor.Name}-singleton-manager")
 
   // Initiates proxy for singleton
   val ticketSellerSupervisorSingletonProxy =
     system.actorOf(
       ClusterSingletonProxy.props(
         singletonManagerPath = ticketSellerSupervisorSingleton.path.toStringWithoutAddress,
-        settings = ClusterSingletonProxySettings(system).withSingletonName(TicketSellerSupervisor.Name)),
-      name = s"${TicketSellerSupervisor.Name}-proxy")
+        settings = ClusterSingletonProxySettings(system).withSingletonName(s"${TicketSellerSupervisor.Name}-singleton")),
+      name = s"${TicketSellerSupervisor.Name}-singleton-proxy")
 
   val eventManager = system.actorOf(EventManager.props(eventRepository, ticketSellerSupervisorSingletonProxy), EventManager.Name)
 }
