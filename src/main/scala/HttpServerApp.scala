@@ -3,12 +3,11 @@ import akka.event.Logging
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.server.Directives
 import akka.stream.ActorMaterializer
-import api.EventHttpEndpoint
+import api.{CustomExceptionHandling, EventHttpEndpoint}
 import com.typesafe.config.{Config, ConfigFactory}
 import persistence.EventRepository
 import reactivemongo.api.{MongoConnection, MongoDriver}
 import services.{EventManager, TicketSellerSupervisor}
-import api.CustomExceptionHandling
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
