@@ -101,16 +101,19 @@ class TicketSeller extends Actor with PersistentFSM[TicketSeller.State, TicketSe
   }
 
   when(Active) {
-    case Event(EventMessage(_, BuyTicket), boxOffice: BoxOffice) => {
+    case Event(EventMessage(_, BuyTicket), boxOffice: NonEmptyBoxOffice) => {
       val (boughtTicket, newBoxOffice) = boxOffice.buy()
-      sender ! boughtTicket
       newBoxOffice match {
-        case _: NonEmptyBoxOffice => stay applying TicketBought
-        case EmptyBoxOffice => goto(SoldOut) applying TicketBought
+        case _: NonEmptyBoxOffice => stay applying TicketBought andThen { _ =>
+          sender ! boughtTicket // respond to the sender once the event has been persisted successfully
+        }
+        case EmptyBoxOffice => goto(SoldOut) applying TicketBought andThen { _ =>
+          sender ! boughtTicket // respond to the sender once the event has been persisted successfully
+        }
       }
     }
 
-    case Event(EventMessage(_, ListTickets), boxOffice: BoxOffice) => {
+    case Event(EventMessage(_, ListTickets), boxOffice: NonEmptyBoxOffice) => {
       sender ! boxOffice.tickets
       stay
     }
