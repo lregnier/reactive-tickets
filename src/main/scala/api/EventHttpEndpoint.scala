@@ -2,6 +2,7 @@ package api
 
 import akka.actor.ActorRef
 import akka.http.scaladsl.model.StatusCodes
+import akka.http.scaladsl.model.headers.Location
 import akka.http.scaladsl.server.Directives
 import akka.pattern.ask
 import akka.util.Timeout
@@ -11,7 +12,6 @@ import org.json4s.ext.UUIDSerializer
 import org.json4s.{DefaultFormats, jackson}
 
 import scala.concurrent.duration._
-import scala.util.{Failure, Success}
 
 trait Json4sJacksonSupport extends Json4sSupport { self: Directives =>
   implicit val serialization = jackson.Serialization
@@ -35,26 +35,27 @@ class EventHttpEndpoint(boxOfficeService: ActorRef) extends Directives with Json
     (pathEnd & post & entity(as[CreateEventRepresentation])) { createEvent =>
       extractUri { uri =>
         val msg = CreateEvent(createEvent.name, createEvent.ticketsNumber)
-        onComplete((boxOfficeService ? msg).mapTo[Event]) {
-          case Success(event) => complete(StatusCodes.Created, event)
-          case Failure(e) => complete(StatusCodes.UnprocessableEntity, e.getMessage())
+        onSuccess((boxOfficeService ? msg).mapTo[Event]) { event =>
+          respondWithHeader(Location(s"$uri/${event.id}")) {
+            complete(StatusCodes.Created, event)
+          }
         }
       }
     }
 
   def retrieve =
-    (path(Segment) & get) { name =>
-      onSuccess((boxOfficeService ? EventMessage(name, RetrieveEvent)).mapTo[Option[Event]]) {
+    (path(Segment) & get) { eventId =>
+      onSuccess((boxOfficeService ? EventMessage(eventId, RetrieveEvent)).mapTo[Option[Event]]) {
         case Some(task) => complete(task)
-        case None => complete(StatusCodes.NotFound)
+        case None => complete(StatusCodes.NotFound, s"Non-existent event for id: $eventId")
       }
     }
 
   def remove =
-    (path(Segment) & delete) { name =>
-      onSuccess((boxOfficeService ? EventMessage(name, Cancel)).mapTo[Option[String]]) {
+    (path(Segment) & delete) { eventId =>
+      onSuccess((boxOfficeService ? EventMessage(eventId, Cancel)).mapTo[Option[String]]) {
         case Some(_) => complete(StatusCodes.NoContent)
-        case None => complete(StatusCodes.NotFound)
+        case None => complete(StatusCodes.NotFound, s"Non-existent event for id: $eventId")
       }
     }
 
@@ -66,16 +67,16 @@ class EventHttpEndpoint(boxOfficeService: ActorRef) extends Directives with Json
     }
 
   def buyTicket =
-    (path(Segment / "tickets" / "purchase") & post) { name =>
-      onSuccess((boxOfficeService ? EventMessage(name, BuyTicket)).mapTo[Option[Ticket]]) {
+    (path(Segment / "tickets" / "purchase") & post) { eventId =>
+      onSuccess((boxOfficeService ? EventMessage(eventId, BuyTicket)).mapTo[Option[Ticket]]) {
         case Some(ticket) => complete(ticket)
-        case None => complete(StatusCodes.NotFound)
+        case None => complete(StatusCodes.NotFound, s"No tickets available for event id: $eventId")
       }
     }
 
   def listTickets =
-    (path(Segment / "tickets") & get) { name =>
-      onSuccess((boxOfficeService ? EventMessage(name, ListTickets)).mapTo[Seq[Ticket]]) { events =>
+    (path(Segment / "tickets") & get) { eventId =>
+      onSuccess((boxOfficeService ? EventMessage(eventId, ListTickets)).mapTo[Seq[Ticket]]) { events =>
         complete(events)
       }
     }
