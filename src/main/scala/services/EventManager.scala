@@ -99,7 +99,7 @@ class EventManager(eventRepository: EventRepository, ticketSellerSupervisor: Act
 
 object TicketsGenerator {
   def generate(ticketsNumber: Int): Seq[Ticket] = {
-    (1 to ticketsNumber).map(_ => Ticket(UUID.randomUUID()))
+    (1 to ticketsNumber).map(_ => Ticket(UUID.randomUUID().toString))
   }
 }
 
