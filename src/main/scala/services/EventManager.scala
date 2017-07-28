@@ -91,7 +91,7 @@ class EventManager(eventRepository: EventRepository, ticketSellerSupervisor: Act
   def verifyEvent(id: String): Future[Event] = {
     eventRepository.retrieve(id) flatMap {
       case Some(event) => Future.successful(event)
-      case None => Future.failed(new IllegalArgumentException(s"Non-existent event for id: $id"))
+      case None => Future.failed(EntityNotFoundException(s"Non-existent event for id: $id"))
     }
   }
 
@@ -102,3 +102,5 @@ object TicketsGenerator {
     (1 to ticketsNumber).map(_ => Ticket(UUID.randomUUID()))
   }
 }
+
+case class EntityNotFoundException(msg: String) extends Exception

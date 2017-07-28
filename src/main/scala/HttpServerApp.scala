@@ -8,6 +8,7 @@ import com.typesafe.config.{Config, ConfigFactory}
 import persistence.EventRepository
 import reactivemongo.api.{MongoConnection, MongoDriver}
 import services.{EventManager, TicketSellerSupervisor}
+`import api.CustomExceptionHandling
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -59,6 +60,8 @@ trait EndpointsModule { self: AkkaModule with ServicesModule =>
 
 
 object HttpServerApp extends App with AkkaModule with SettingsModule with PersistenceModule with ServicesModule with EndpointsModule {
+  import CustomExceptionHandling._
+
   // Initialize server
   Http().bindAndHandle(routes, httpSettings.host, httpSettings.port)
 
