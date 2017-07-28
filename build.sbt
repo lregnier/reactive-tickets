@@ -2,7 +2,7 @@ name := "reactive-tickets"
 
 version := "1.0"
 
-scalaVersion := "2.11.12"
+scalaVersion := "2.12.2"
 
 libraryDependencies ++= {
   val akkaVersion = "2.5.3"
