@@ -8,7 +8,7 @@ import com.typesafe.config.{Config, ConfigFactory}
 import persistence.EventRepository
 import reactivemongo.api.{MongoConnection, MongoDriver}
 import services.{EventManager, TicketSellerSupervisor}
-`import api.CustomExceptionHandling
+import api.CustomExceptionHandling
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
