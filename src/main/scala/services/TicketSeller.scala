@@ -72,11 +72,13 @@ class TicketSeller extends Actor with PersistentFSM[TicketSeller.State, TicketSe
 
   import TicketSeller._
 
+  log.info("Starting TicketSeller at {}", self.path)
+
   override def persistenceId: String = {
     // Note:
-    // self.path.parent.parent.name is the ShardRegion actor name: job-supervisor
+    // self.path.parent.parent.name is the ShardRegion actor name: ticket-seller
     // self.path.parent.name is the Shard supervisor actor name: 5
-    // self.path.name is the sharded Entity actor name: 75430231-b920-4811-8950-dad9ca18f3a8
+    // self.path.name is the sharded Entity actor name: 597be7e24e00004500292035
     s"${self.path.parent.parent.name}-${self.path.parent.name}-${self.path.name}"
   }
 
@@ -101,7 +103,7 @@ class TicketSeller extends Actor with PersistentFSM[TicketSeller.State, TicketSe
   }
 
   when(Active) {
-    case Event(EventMessage(_, BuyTicket), boxOffice: NonEmptyBoxOffice) => {
+    case Event(EventMessage(_, BuyTicket), boxOffice: BoxOffice) => {
       val (boughtTicket, newBoxOffice) = boxOffice.buy()
       newBoxOffice match {
         case _: NonEmptyBoxOffice => stay applying TicketBought andThen { _ =>
@@ -112,11 +114,6 @@ class TicketSeller extends Actor with PersistentFSM[TicketSeller.State, TicketSe
         }
       }
     }
-
-    case Event(EventMessage(_, ListTickets), boxOffice: NonEmptyBoxOffice) => {
-      sender ! boxOffice.tickets
-      stay
-    }
   }
 
   when(SoldOut) {
@@ -125,14 +122,15 @@ class TicketSeller extends Actor with PersistentFSM[TicketSeller.State, TicketSe
       sender ! boughtTicket
       stay
     }
+  }
 
+  whenUnhandled {
+    // common code for all states
     case Event(EventMessage(_, ListTickets), boxOffice: BoxOffice) => {
       sender ! boxOffice.tickets
       stay
     }
-  }
 
-  whenUnhandled {
     case Event(EventMessage(name, Cancel), _) => {
       log.info("Cancelling Ticket Seller for Event {}", name)
       stop
