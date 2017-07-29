@@ -12,9 +12,8 @@ libraryDependencies ++= {
   val json4sVersion = "3.5.0"
   val reactiveMongoVersion = "0.12.5"
   val logBackVersion = "1.2.3"
-    Seq(
+  Seq(
     "com.typesafe.akka"  %%  "akka-actor"                  %  akkaVersion,
-    "com.typesafe.akka"  %%  "akka-cluster"                %  akkaVersion,
     "com.typesafe.akka"  %%  "akka-cluster-sharding"       %  akkaVersion,
     "com.typesafe.akka"  %%  "akka-persistence"            %  akkaVersion,
     "com.typesafe.akka"  %%  "akka-persistence-cassandra"  %  akkaPersistenceCassandra,
