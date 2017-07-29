@@ -18,15 +18,16 @@ class EventRepository(connection: MongoConnection) {
   private def db(implicit ec: ExecutionContext): Future[DefaultDB] = connection.database("reactive-tickets")
   private def collection(implicit ec: ExecutionContext): Future[BSONCollection] = db.map(_.collection("event"))
 
-  def create(name: String)(implicit ec: ExecutionContext): Future[Event] = {
+  def create(name: String, description: String)(implicit ec: ExecutionContext): Future[Event] = {
     val _id = BSONObjectID.generate
     val id = _id.stringify
     val document = BSONDocument(
       "_id" -> _id,
       "id" -> id,
-      "name" -> name)
+      "name" -> name,
+      "description" -> description)
 
-    collection.flatMap(_.insert(document).map(_ => Event(id, name)))
+    collection.flatMap(_.insert(document).map(_ => Event(id, description, name)))
   }
 
 

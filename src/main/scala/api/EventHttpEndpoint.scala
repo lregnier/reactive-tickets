@@ -23,7 +23,7 @@ object EventHttpEndpoint {
     new EventHttpEndpoint(boxOfficeService)
   }
 
-  case class CreateEventRepresentation(name: String, ticketsNumber: Int)
+  case class CreateEventRepresentation(name: String, description: String, ticketsNumber: Int)
 }
 
 class EventHttpEndpoint(boxOfficeService: ActorRef) extends Directives with Json4sJacksonSupport {
@@ -34,7 +34,7 @@ class EventHttpEndpoint(boxOfficeService: ActorRef) extends Directives with Json
   def create =
     (pathEnd & post & entity(as[CreateEventRepresentation])) { createEvent =>
       extractUri { uri =>
-        val msg = CreateEvent(createEvent.name, createEvent.ticketsNumber)
+        val msg = CreateEvent(createEvent.name, createEvent.description, createEvent.ticketsNumber)
         onSuccess((boxOfficeService ? msg).mapTo[Event]) { event =>
           respondWithHeader(Location(s"$uri/${event.id}")) {
             complete(StatusCodes.Created, event)

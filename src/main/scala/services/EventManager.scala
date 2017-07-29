@@ -26,12 +26,12 @@ class EventManager(eventRepository: EventRepository, ticketSellerSupervisor: Act
   implicit val ec = context.dispatcher
 
   def receive = {
-    case CreateEvent(name, ticketsNumber) => {
-      val result = eventRepository.create(name)
+    case CreateEvent(name, description, ticketsNumber) => {
+      val result = eventRepository.create(name, description)
 
       // Create TicketSellerSupervisor as side-effect
       result onSuccess {
-        case Event(id, _) => ticketSellerSupervisor ! EventMessage(id, AddTickets(TicketsGenerator.generate(ticketsNumber)))
+        case event: Event => ticketSellerSupervisor ! EventMessage(event.id, AddTickets(TicketsGenerator.generate(ticketsNumber)))
       }
 
       result pipeTo sender
