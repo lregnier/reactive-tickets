@@ -26,7 +26,7 @@ object EventHttpEndpoint {
   case class CreateEventRepresentation(name: String, description: String, ticketsNumber: Int)
 }
 
-class EventHttpEndpoint(boxOfficeService: ActorRef) extends Directives with Json4sJacksonSupport {
+class EventHttpEndpoint(eventManager: ActorRef) extends Directives with Json4sJacksonSupport {
 
   import EventHttpEndpoint._
   implicit val timeout = Timeout(10 seconds)
@@ -35,7 +35,7 @@ class EventHttpEndpoint(boxOfficeService: ActorRef) extends Directives with Json
     (pathEnd & post & entity(as[CreateEventRepresentation])) { createEvent =>
       extractUri { uri =>
         val msg = CreateEvent(createEvent.name, createEvent.description, createEvent.ticketsNumber)
-        onSuccess((boxOfficeService ? msg).mapTo[Event]) { event =>
+        onSuccess((eventManager ? msg).mapTo[Event]) { event =>
           respondWithHeader(Location(s"$uri/${event.id}")) {
             complete(StatusCodes.Created, event)
           }
@@ -45,7 +45,7 @@ class EventHttpEndpoint(boxOfficeService: ActorRef) extends Directives with Json
 
   def retrieve =
     (path(Segment) & get) { eventId =>
-      onSuccess((boxOfficeService ? EventMessage(eventId, RetrieveEvent)).mapTo[Option[Event]]) {
+      onSuccess((eventManager ? EventMessage(eventId, RetrieveEvent)).mapTo[Option[Event]]) {
         case Some(task) => complete(task)
         case None => complete(StatusCodes.NotFound, s"Non-existent event for id: $eventId")
       }
@@ -53,22 +53,29 @@ class EventHttpEndpoint(boxOfficeService: ActorRef) extends Directives with Json
 
   def remove =
     (path(Segment) & delete) { eventId =>
-      onSuccess((boxOfficeService ? EventMessage(eventId, Cancel)).mapTo[Option[String]]) {
+      onSuccess((eventManager ? EventMessage(eventId, Cancel)).mapTo[Option[String]]) {
         case Some(_) => complete(StatusCodes.NoContent)
         case None => complete(StatusCodes.NotFound, s"Non-existent event for id: $eventId")
       }
     }
 
-  def list =
+  def listAll =
     (pathEnd & get) {
-      onSuccess((boxOfficeService ? ListEvents).mapTo[Seq[Event]]) { events =>
+      onSuccess((eventManager ? ListEvents).mapTo[Seq[Event]]) { events =>
         complete(events)
+      }
+    }
+
+  def removeAll =
+    (pathEnd & delete) {
+      onSuccess((eventManager ? CancelAll).mapTo[Seq[String]]) { eventIds =>
+        complete(eventIds)
       }
     }
 
   def buyTicket =
     (path(Segment / "tickets" / "purchase") & post) { eventId =>
-      onSuccess((boxOfficeService ? EventMessage(eventId, BuyTicket)).mapTo[Option[Ticket]]) {
+      onSuccess((eventManager ? EventMessage(eventId, BuyTicket)).mapTo[Option[Ticket]]) {
         case Some(ticket) => complete(ticket)
         case None => complete(StatusCodes.NotFound, s"No tickets available for event id: $eventId")
       }
@@ -76,17 +83,20 @@ class EventHttpEndpoint(boxOfficeService: ActorRef) extends Directives with Json
 
   def listTickets =
     (path(Segment / "tickets") & get) { eventId =>
-      onSuccess((boxOfficeService ? EventMessage(eventId, ListTickets)).mapTo[Seq[Ticket]]) { events =>
+      onSuccess((eventManager ? EventMessage(eventId, ListTickets)).mapTo[Seq[Ticket]]) { events =>
         complete(events)
       }
     }
+
+
 
   def routes =
     pathPrefix("events") {
       create ~
       retrieve ~
       remove ~
-      list ~
+      listAll ~
+      removeAll ~
       buyTicket ~
       listTickets
     }
