@@ -4,7 +4,7 @@ import akka.event.Logging
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.server.Directives
 import akka.stream.ActorMaterializer
-import api.EventHttpEndpoint
+import api.{CustomExceptionHandling, EventHttpEndpoint}
 import com.typesafe.config.{Config, ConfigFactory}
 import persistence.EventRepository
 import reactivemongo.api.{MongoConnection, MongoDriver}
@@ -76,6 +76,8 @@ trait EndpointsModule { self: AkkaModule with ServicesModule =>
 
 
 object HttpServerApp extends App with AkkaModule with SettingsModule with PersistenceModule with ServicesModule with EndpointsModule {
+  import CustomExceptionHandling._
+
   // Initialize server
   Http().bindAndHandle(routes, httpSettings.host, httpSettings.port)
 

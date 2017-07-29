@@ -26,12 +26,12 @@ class EventManager(eventRepository: EventRepository, ticketSellerSupervisor: Act
   implicit val ec = context.dispatcher
 
   def receive = {
-    case CreateEvent(name, ticketsNumber) => {
-      val result = eventRepository.create(name)
+    case CreateEvent(name, description, ticketsNumber) => {
+      val result = eventRepository.create(name, description)
 
       // Create TicketSellerSupervisor as side-effect
       result onSuccess {
-        case Event(id, _) => ticketSellerSupervisor ! EventMessage(id, AddTickets(TicketsGenerator.generate(ticketsNumber)))
+        case event: Event => ticketSellerSupervisor ! EventMessage(event.id, AddTickets(TicketsGenerator.generate(ticketsNumber)))
       }
 
       result pipeTo sender
@@ -91,7 +91,7 @@ class EventManager(eventRepository: EventRepository, ticketSellerSupervisor: Act
   def verifyEvent(id: String): Future[Event] = {
     eventRepository.retrieve(id) flatMap {
       case Some(event) => Future.successful(event)
-      case None => Future.failed(new IllegalArgumentException(s"Non-existent event for id: $id"))
+      case None => Future.failed(EntityNotFoundException(s"Non-existent event for id: $id"))
     }
   }
 
@@ -99,6 +99,8 @@ class EventManager(eventRepository: EventRepository, ticketSellerSupervisor: Act
 
 object TicketsGenerator {
   def generate(ticketsNumber: Int): Seq[Ticket] = {
-    (1 to ticketsNumber).map(_ => Ticket(UUID.randomUUID()))
+    (1 to ticketsNumber).map(_ => Ticket(UUID.randomUUID().toString))
   }
 }
+
+case class EntityNotFoundException(msg: String) extends Exception
