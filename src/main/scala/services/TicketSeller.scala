@@ -54,6 +54,8 @@ class TicketSeller extends Actor with FSM[TicketSeller.State, TicketSeller.BoxOf
 
   import TicketSeller._
 
+  log.info("Starting TicketSeller at {}", self.path)
+
   startWith(Idle, EmptyBoxOffice)
 
   when(Idle) {
@@ -71,11 +73,6 @@ class TicketSeller extends Actor with FSM[TicketSeller.State, TicketSeller.BoxOf
         case EmptyBoxOffice => goto(SoldOut) using EmptyBoxOffice
       }
     }
-
-    case Event(EventMessage(_, ListTickets), boxOffice: BoxOffice) => {
-      sender ! boxOffice.tickets
-      stay
-    }
   }
 
   when(SoldOut) {
@@ -84,14 +81,15 @@ class TicketSeller extends Actor with FSM[TicketSeller.State, TicketSeller.BoxOf
       sender ! boughtTicket
       stay
     }
+  }
 
+  whenUnhandled {
+    // common code for all states
     case Event(EventMessage(_, ListTickets), boxOffice: BoxOffice) => {
       sender ! boxOffice.tickets
       stay
     }
-  }
 
-  whenUnhandled {
     case Event(EventMessage(name, Cancel), _) => {
       log.info("Cancelling Ticket Seller for Event {}", name)
       stop

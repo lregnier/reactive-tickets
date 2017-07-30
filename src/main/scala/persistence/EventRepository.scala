@@ -66,6 +66,10 @@ class EventRepository(connection: MongoConnection) {
      collection.flatMap(_.find(BSONDocument()).cursor[Event]().collect[List]())
   }
 
+  def removeAll()(implicit ec: ExecutionContext): Future[Int] = {
+    collection.flatMap(_.remove(BSONDocument()).map(_.n))
+  }
+
   private def parseId(id: String): Future[BSONObjectID] = {
     Future.fromTry(BSONObjectID.parse(id))
   }
