@@ -29,7 +29,7 @@ class EventManager(eventRepository: EventRepository, ticketSellerSupervisor: Act
     case CreateEvent(name, description, ticketsNumber) => {
       val result = eventRepository.create(name, description)
 
-      // Create TicketSellerSupervisor as side-effect
+      // Create TicketSeller as side-effect
       result onSuccess {
         case event: Event => ticketSellerSupervisor ! EventMessage(event.id, AddTickets(TicketsGenerator.generate(ticketsNumber)))
       }
@@ -77,15 +77,35 @@ class EventManager(eventRepository: EventRepository, ticketSellerSupervisor: Act
       result pipeTo sender
     }
 
-    case msg @ EventMessage(id, Cancel) =>
+    case msg @ EventMessage(id, Cancel) => {
       val result = eventRepository.remove(id)
 
-      // Remove TicketSellerSupervisor as side-effect
+      // Remove TicketSeller as side-effect
       result onSuccess {
         case Some(_) => ticketSellerSupervisor ! msg
       }
 
       result pipeTo sender
+    }
+
+    case CancelAll => {
+      val result =
+        for {
+          events <- eventRepository.list()
+          _ <- eventRepository.removeAll()
+        } yield events.map(_.id)
+
+      // Remove TicketSellers as side-effect
+      result onSuccess {
+        case eventIds =>
+          eventIds foreach { id =>
+            ticketSellerSupervisor ! EventMessage(id, Cancel)
+          }
+      }
+
+      result pipeTo sender
+    }
+
   }
 
   def verifyEvent(id: String): Future[Event] = {

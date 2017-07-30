@@ -11,3 +11,4 @@ case object Cancel extends EventMessagePayload
 
 case class CreateEvent(name: String, description: String, ticketsNumber: Int)
 case object ListEvents
+case object CancelAll
