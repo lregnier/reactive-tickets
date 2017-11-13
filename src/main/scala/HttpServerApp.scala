@@ -1,4 +1,5 @@
-import akka.actor.ActorSystem
+import akka.actor.{ActorSystem, PoisonPill}
+import akka.cluster.singleton.{ClusterSingletonManager, ClusterSingletonManagerSettings, ClusterSingletonProxy, ClusterSingletonProxySettings}
 import akka.event.Logging
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.server.Directives
@@ -44,8 +45,24 @@ trait PersistenceModule { self: AkkaModule with SettingsModule =>
 }
 
 trait ServicesModule { self: AkkaModule with PersistenceModule =>
-  val ticketSellerSupervisor = system.actorOf(TicketSellerSupervisor.props(), TicketSellerSupervisor.Name)
-  val eventManager = system.actorOf(EventManager.props(eventRepository ,ticketSellerSupervisor), EventManager.Name)
+  // Initiates singleton TicketSellerSupervisor in the Cluster
+  val ticketSellerSupervisorSingleton =
+    system.actorOf(
+      ClusterSingletonManager.props(
+        singletonProps = TicketSellerSupervisor.props(),
+        terminationMessage = PoisonPill,
+        settings = ClusterSingletonManagerSettings(system).withSingletonName(s"${TicketSellerSupervisor.Name}-singleton")),
+      name = s"${TicketSellerSupervisor.Name}-singleton-manager")
+
+  // Initiates proxy for singleton
+  val ticketSellerSupervisorSingletonProxy =
+    system.actorOf(
+      ClusterSingletonProxy.props(
+        singletonManagerPath = ticketSellerSupervisorSingleton.path.toStringWithoutAddress,
+        settings = ClusterSingletonProxySettings(system).withSingletonName(s"${TicketSellerSupervisor.Name}-singleton")),
+      name = s"${TicketSellerSupervisor.Name}-singleton-proxy")
+
+  val eventManager = system.actorOf(EventManager.props(eventRepository, ticketSellerSupervisorSingletonProxy), EventManager.Name)
 }
 
 trait EndpointsModule { self: AkkaModule with ServicesModule =>
