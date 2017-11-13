@@ -13,8 +13,7 @@ libraryDependencies ++= {
   val logBackVersion = "1.2.3"
   Seq(
     "com.typesafe.akka"  %%  "akka-actor"                  %  akkaVersion,
-    "com.typesafe.akka"  %%  "akka-cluster"                %  akkaVersion,
-    "com.typesafe.akka"  %%  "akka-cluster-tools"          %  akkaVersion,
+    "com.typesafe.akka"  %%  "akka-cluster-sharding"       %  akkaVersion,
     "com.typesafe.akka"  %%  "akka-http"                   %  akkaHttpVersion,
     "com.typesafe.akka"  %%  "akka-stream"                 %  akkaVersion,
     "de.heikoseeberger"  %%  "akka-http-json4s"            %  akkaHttpJson4sVersion,

@@ -1,6 +1,7 @@
 package services
 
 import akka.actor.{Actor, FSM, Props}
+import akka.cluster.sharding.ShardRegion
 import domain.{Ticket, _}
 
 object TicketSeller {
@@ -34,6 +35,16 @@ object TicketSeller {
         case ticket :: rest => (Some(ticket), NonEmptyBoxOffice(rest))
         case Nil => (None, EmptyBoxOffice)
       }
+    }
+  }
+
+  object Sharding {
+    val extractEntityId: ShardRegion.ExtractEntityId = {
+      case msg @ EventMessage(jobId, _) => (jobId.toString, msg)
+    }
+
+    val extractShardId: ShardRegion.ExtractShardId = {
+      case EventMessage(jobId, _) => (math.abs(jobId.toString.hashCode) % 100).toString
     }
   }
 

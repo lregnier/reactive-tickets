@@ -1,5 +1,5 @@
-import akka.actor.{ActorSystem, PoisonPill}
-import akka.cluster.singleton.{ClusterSingletonManager, ClusterSingletonManagerSettings, ClusterSingletonProxy, ClusterSingletonProxySettings}
+import akka.actor.ActorSystem
+import akka.cluster.sharding.{ClusterSharding, ClusterShardingSettings}
 import akka.event.Logging
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.server.Directives
@@ -8,7 +8,7 @@ import api.{CustomExceptionHandling, EventHttpEndpoint}
 import com.typesafe.config.{Config, ConfigFactory}
 import persistence.EventRepository
 import reactivemongo.api.{MongoConnection, MongoDriver}
-import services.{EventManager, TicketSellerSupervisor}
+import services.{EventManager, TicketSeller}
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -45,24 +45,16 @@ trait PersistenceModule { self: AkkaModule with SettingsModule =>
 }
 
 trait ServicesModule { self: AkkaModule with PersistenceModule =>
-  // Initiates singleton TicketSellerSupervisor in the Cluster
-  val ticketSellerSupervisorSingleton =
-    system.actorOf(
-      ClusterSingletonManager.props(
-        singletonProps = TicketSellerSupervisor.props(),
-        terminationMessage = PoisonPill,
-        settings = ClusterSingletonManagerSettings(system).withSingletonName(s"${TicketSellerSupervisor.Name}-singleton")),
-      name = s"${TicketSellerSupervisor.Name}-singleton-manager")
+  // Initiates ShardRegion for TicketSeller
+  val ticketSellerShardRegion =
+    ClusterSharding(system).start(
+      typeName = TicketSeller.Name,
+      entityProps = TicketSeller.props(),
+      settings = ClusterShardingSettings(system),
+      extractEntityId = TicketSeller.Sharding.extractEntityId,
+      extractShardId = TicketSeller.Sharding.extractShardId)
 
-  // Initiates proxy for singleton
-  val ticketSellerSupervisorSingletonProxy =
-    system.actorOf(
-      ClusterSingletonProxy.props(
-        singletonManagerPath = ticketSellerSupervisorSingleton.path.toStringWithoutAddress,
-        settings = ClusterSingletonProxySettings(system).withSingletonName(s"${TicketSellerSupervisor.Name}-singleton")),
-      name = s"${TicketSellerSupervisor.Name}-singleton-proxy")
-
-  val eventManager = system.actorOf(EventManager.props(eventRepository, ticketSellerSupervisorSingletonProxy), EventManager.Name)
+  val eventManager = system.actorOf(EventManager.props(eventRepository, ticketSellerShardRegion), EventManager.Name)
 }
 
 trait EndpointsModule { self: AkkaModule with ServicesModule =>
